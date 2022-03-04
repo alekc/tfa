@@ -1,0 +1,11 @@
+project_name: tfa
+builds:
+  - env: [CGO_ENABLED=0]
+    main: "./cmd/"
+    binary: tfa
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64

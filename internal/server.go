@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/alekc/tfa/internal/provider"
 	"github.com/containous/traefik/v2/pkg/rules"
 	"github.com/sirupsen/logrus"
-	"github.com/thomseddon/traefik-forward-auth/internal/provider"
 )
 
 // Server contains router and handler methods
@@ -53,7 +53,7 @@ func (s *Server) buildRoutes() {
 }
 
 // RootHandler Overwrites the request method, host and URL with those from the
-// forwarded request so it's correctly routed by mux
+// forwarded request, so it's correctly routed by mux
 func (s *Server) RootHandler(w http.ResponseWriter, r *http.Request) {
 	// Modify request
 	r.Method = r.Header.Get("X-Forwarded-Method")
@@ -84,9 +84,14 @@ func (s *Server) AuthHandler(providerName, rule string) http.HandlerFunc {
 		// Logging setup
 		logger := s.logger(r, "Auth", rule, "Authenticating request")
 
+		logger.WithField("headers", r.Header).Debug("headers")
+
 		// Get auth cookie
 		c, err := r.Cookie(config.CookieName)
 		if err != nil {
+			logger.
+				WithField("headers", r.Header).
+				Debug("cannot get the cookie, starting auth redirect")
 			s.authRedirect(logger, w, r, p)
 			return
 		}
@@ -127,6 +132,7 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 
 		// Check state
 		state := r.URL.Query().Get("state")
+		logger = logger.WithField("state", state)
 		if err := ValidateState(state); err != nil {
 			logger.WithFields(logrus.Fields{
 				"error": err,
