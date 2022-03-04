@@ -1,18 +1,14 @@
-FROM golang:1.13-alpine as builder
+FROM alpine as builder
+ARG TARGETPLATFORM
 
-# Setup
-RUN mkdir -p /go/src/github.com/thomseddon/traefik-forward-auth
-WORKDIR /go/src/github.com/thomseddon/traefik-forward-auth
+WORKDIR /
 
-# Add libraries
-RUN apk add --no-cache git
+RUN --mount=target=/build tar xf /build/dist/tfa_*_$(echo ${TARGETPLATFORM} | tr '/' '_' | sed -e 's/arm_/arm/').tar.gz
+RUN cp tfa /usr/bin/tfa
 
-# Copy & build
-ADD . /go/src/github.com/thomseddon/traefik-forward-auth/
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -installsuffix nocgo -o /traefik-forward-auth github.com/thomseddon/traefik-forward-auth/cmd
-
-# Copy into scratch container
-FROM scratch
+FROM gcr.io/distroless/static:nonroot
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /traefik-forward-auth ./
-ENTRYPOINT ["./traefik-forward-auth"]
+COPY --from=builder /usr/bin/tfa /usr/bin/tfa
+USER 65532:65532
+
+CMD ["/usr/bin/tfa"]
